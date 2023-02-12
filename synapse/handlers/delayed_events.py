@@ -178,7 +178,8 @@ class DelayedEventsHandler:
                     "sender": str(requester.user),
                     **({"state_key": state_key} if state_key is not None else {}),
                 },
-            )
+            ),
+            self._config,
         )
 
         # MSC4140: don't store delayed events that could not be sent now. A

@@ -47,7 +47,6 @@ from synapse.event_auth import get_named_level, get_power_level_event
 from synapse.events import EventBase, is_creator
 from synapse.events.snapshot import EventContext
 from synapse.handlers.pagination import PURGE_ROOM_ACTION_NAME
-from synapse.handlers.profile import MAX_AVATAR_URL_LEN, MAX_DISPLAYNAME_LEN
 from synapse.handlers.state_deltas import MatchChange, StateDeltasHandler
 from synapse.handlers.worker_lock import NEW_EVENT_DURING_PURGE_LOCK_NAME
 from synapse.logging import opentracing
@@ -810,26 +809,6 @@ class RoomMemberHandler(metaclass=abc.ABCMeta):
             # the event's content below using the target's global profile.
             content.pop("displayname", None)
             content.pop("avatar_url", None)
-
-        if len(content.get("displayname") or "") > MAX_DISPLAYNAME_LEN:
-            raise SynapseError(
-                400,
-                f"Displayname is too long (max {MAX_DISPLAYNAME_LEN})",
-                errcode=Codes.BAD_JSON,
-            )
-
-        if len(content.get("avatar_url") or "") > MAX_AVATAR_URL_LEN:
-            raise SynapseError(
-                400,
-                f"Avatar URL is too long (max {MAX_AVATAR_URL_LEN})",
-                errcode=Codes.BAD_JSON,
-            )
-
-        if "avatar_url" in content and content.get("avatar_url") is not None:
-            if not await self.profile_handler.check_avatar_size_and_mime_type(
-                content["avatar_url"],
-            ):
-                raise SynapseError(403, "This avatar is not allowed", Codes.FORBIDDEN)
 
         # The event content should *not* include the authorising user as
         # it won't be properly signed. Strip it out since it might come

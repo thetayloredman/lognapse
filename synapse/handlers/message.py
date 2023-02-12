@@ -727,7 +727,7 @@ class EventCreationHandler:
             room_version_obj, event_dict
         )
 
-        self.validator.validate_builder(builder)
+        self.validator.validate_builder(builder, self.config)
 
         is_exempt = await self._is_exempt_from_privacy_policy(builder, requester)
         if require_consent and not is_exempt:
@@ -1478,6 +1478,8 @@ class EventCreationHandler:
         Raises:
             SynapseError if the event is invalid.
         """
+        if event.sender in self.config.meow.validation_override:
+            return
 
         relation = relation_from_event(event)
         if not relation:
@@ -2018,7 +2020,8 @@ class EventCreationHandler:
 
             await self._maybe_kick_guest_users(event, context)
 
-            if event.type == EventTypes.CanonicalAlias:
+            validation_override = event.sender in self.config.meow.validation_override
+            if event.type == EventTypes.CanonicalAlias and not validation_override:
                 # Validate a newly added alias or newly added alt_aliases.
 
                 original_alias = None
@@ -2452,7 +2455,7 @@ class EventCreationHandler:
             builder = self.event_builder_factory.for_room_version(
                 original_event.room_version, third_party_result
             )
-            self.validator.validate_builder(builder)
+            self.validator.validate_builder(builder, self.config)
 
         except SynapseError as e:
             # Prepend the error message with some context. This will be raised as a

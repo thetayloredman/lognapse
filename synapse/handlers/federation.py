@@ -2044,7 +2044,7 @@ class FederationHandler:
                 room_version_obj, event_dict
             )
 
-            EventValidator().validate_builder(builder)
+            EventValidator().validate_builder(builder, self.hs.config)
 
             # Try several times, it could fail with PartialStateConflictError
             # in send_membership_event, cf comment in except block.
@@ -2216,7 +2216,7 @@ class FederationHandler:
         builder = self.event_builder_factory.for_room_version(
             room_version_obj, event_dict
         )
-        EventValidator().validate_builder(builder)
+        EventValidator().validate_builder(builder, self.hs.config)
 
         (
             event,
