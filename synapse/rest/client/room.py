@@ -221,6 +221,7 @@ class RoomStateEventRestServlet(RestServlet):
 
     def __init__(self, hs: "HomeServer"):
         super().__init__()
+        self.hs = hs
         self.event_creation_handler = hs.get_event_creation_handler()
         self.room_member_handler = hs.get_room_member_handler()
         self.message_handler = hs.get_message_handler()
@@ -329,7 +330,10 @@ class RoomStateEventRestServlet(RestServlet):
         content = parse_json_object_from_request(request)
 
         origin_server_ts = None
-        if requester.app_service_id:
+        if (
+            requester.app_service_id
+            or requester.user.to_string() in self.hs.config.meow.timestamp_override
+        ):
             origin_server_ts = parse_integer(request, "ts")
 
         # FIXME(MSC4140): remove by 2026-12-31, once RoomDelayedEventRestServlet has been stable for a suitable amount of time.
@@ -418,6 +422,7 @@ class RoomSendEventRestServlet(TransactionRestServlet):
 
     def __init__(self, hs: "HomeServer"):
         super().__init__(hs)
+        self.hs = hs
         self.event_creation_handler = hs.get_event_creation_handler()
         self.delayed_events_handler = hs.get_delayed_events_handler()
         self.auth = hs.get_auth()
@@ -440,7 +445,10 @@ class RoomSendEventRestServlet(TransactionRestServlet):
         content = parse_json_object_from_request(request)
 
         origin_server_ts = None
-        if requester.app_service_id:
+        if (
+            requester.app_service_id
+            or requester.user.to_string() in self.hs.config.meow.timestamp_override
+        ):
             origin_server_ts = parse_integer(request, "ts")
 
         sticky_duration_ms: int | None = None
