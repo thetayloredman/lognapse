@@ -104,6 +104,7 @@ from synapse.module_api.callbacks.ratelimit_callbacks import (
     RatelimitOverride,
 )
 from synapse.module_api.callbacks.spamchecker_callbacks import (
+    ACCEPT_MAKE_JOIN_CALLBACK,
     CHECK_EVENT_FOR_SPAM_CALLBACK,
     CHECK_LOGIN_FOR_SPAM_CALLBACK,
     CHECK_MEDIA_FILE_FOR_SPAM_CALLBACK,
@@ -405,6 +406,7 @@ class ModuleApi:
         check_event_for_spam: CHECK_EVENT_FOR_SPAM_CALLBACK | None = None,
         should_drop_federated_event: SHOULD_DROP_FEDERATED_EVENT_CALLBACK | None = None,
         user_may_join_room: USER_MAY_JOIN_ROOM_CALLBACK | None = None,
+        accept_make_join: ACCEPT_MAKE_JOIN_CALLBACK | None = None,
         user_may_invite: USER_MAY_INVITE_CALLBACK | None = None,
         federated_user_may_invite: FEDERATED_USER_MAY_INVITE_CALLBACK | None = None,
         user_may_send_3pid_invite: USER_MAY_SEND_3PID_INVITE_CALLBACK | None = None,
@@ -425,6 +427,7 @@ class ModuleApi:
             check_event_for_spam=check_event_for_spam,
             should_drop_federated_event=should_drop_federated_event,
             user_may_join_room=user_may_join_room,
+            accept_make_join=accept_make_join,
             user_may_invite=user_may_invite,
             federated_user_may_invite=federated_user_may_invite,
             user_may_send_3pid_invite=user_may_send_3pid_invite,

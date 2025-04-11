@@ -689,7 +689,12 @@ class RoomSummaryHandler:
                 (
                     allowed_rooms,
                     _,
+                    ask_spam_checker,
                 ) = await self._event_auth_handler.get_rooms_that_allow_join(state_ids)
+                if ask_spam_checker is not None:
+                    # If the room allows joining after asking the spam checker,
+                    # the room is effectively public and anyone can get the summary.
+                    return True
                 if await self._event_auth_handler.is_user_in_rooms(
                     allowed_rooms, requester
                 ):
@@ -712,7 +717,10 @@ class RoomSummaryHandler:
                 (
                     allowed_rooms,
                     _,
+                    ask_spam_checker,
                 ) = await self._event_auth_handler.get_rooms_that_allow_join(state_ids)
+                if ask_spam_checker is not None:
+                    return True
                 for space_id in allowed_rooms:
                     if await self._event_auth_handler.is_host_in_room(space_id, origin):
                         return True
@@ -841,7 +849,7 @@ class RoomSummaryHandler:
         if room_version and await self._event_auth_handler.has_restricted_join_rules(
             join_rules_state_ids, room_version
         ):
-            allowed_rooms, _ = await self._event_auth_handler.get_rooms_that_allow_join(
+            allowed_rooms, _, _ = await self._event_auth_handler.get_rooms_that_allow_join(
                 join_rules_state_ids
             )
             if allowed_rooms:

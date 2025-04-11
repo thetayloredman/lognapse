@@ -1374,7 +1374,7 @@ class RoomMemberHandler(metaclass=abc.ABCMeta):
         # Ensure the member should be allowed access via membership in a room.
         try:
             await self.event_auth_handler.check_restricted_join_rules(
-                state_before_join, room_version, user_id, previous_membership
+                state_before_join, room_version, user_id, previous_membership, room_id
             )
         except SynapseError as e:
             if e.errcode == Codes.UNABLE_AUTHORISE_JOIN:
