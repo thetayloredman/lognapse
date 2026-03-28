@@ -883,6 +883,14 @@ class ProfileHandler:
         if not self.hs.is_mine(user):
             raise SynapseError(400, "User is not hosted on this homeserver")
 
+        for prefix in self.hs.config.meow.forbidden_federation_profile_query_prefixes:
+            if user.localpart.startswith(prefix):
+                raise SynapseError(
+                    403,
+                    "Profile lookup over federation is disabled for that user",
+                    Codes.FORBIDDEN,
+                )
+
         just_field = args.get("field", None)
 
         response: JsonDict = {}

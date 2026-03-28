@@ -34,3 +34,6 @@ class MeowConfig(Config):
         self.admin_api_register_invalid = meow_config.get(
             "admin_api_register_invalid", True
         )
+        self.forbidden_federation_profile_query_prefixes = meow_config.get(
+            "forbidden_federation_profile_query_prefixes", []
+        )
