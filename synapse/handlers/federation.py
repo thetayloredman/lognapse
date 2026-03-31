@@ -21,7 +21,7 @@
 #
 
 """Contains handlers for federation events."""
-
+import copy
 import enum
 import itertools
 import logging
@@ -1866,6 +1866,18 @@ class FederationHandler:
             filter_out_erased_senders=True,
             filter_out_remote_partial_state_events=True,
         )
+        for i, event in enumerate(events):
+            if self.store.config.federation.should_spoil_event(
+                origin,
+                event.sender
+            ):
+                event = copy.deepcopy(event)
+                event.content["body"] = f"{origin} forgot to redact this event"
+                event.content["msgtype"] = "m.text"
+                event.content.pop("format", None)
+                event.content.pop("formatted_body", None)
+                event.unsigned["redacted_because"] = {}
+                events[i] = event
 
         return events
 
@@ -1902,6 +1914,16 @@ class FederationHandler:
             filter_out_remote_partial_state_events=True,
         )
         event = events[0]
+        if self.store.config.federation.should_spoil_event(
+            origin,
+            event.sender
+        ):
+            event = copy.deepcopy(event)
+            event.content["body"] = f"{origin} forgot to redact this event"
+            event.content["msgtype"] = "m.text"
+            event.content.pop("format", None)
+            event.content.pop("formatted_body", None)
+            event.unsigned["redacted_because"] = {}
         return event
 
     async def on_get_missing_events(
@@ -1935,6 +1957,18 @@ class FederationHandler:
             filter_out_erased_senders=True,
             filter_out_remote_partial_state_events=True,
         )
+        for i, event in enumerate(missing_events):
+            if self.store.config.federation.should_spoil_event(
+                origin,
+                event.sender
+            ):
+                event = copy.deepcopy(event)
+                event.content["body"] = f"{origin} forgot to redact this event"
+                event.content["msgtype"] = "m.text"
+                event.content.pop("format", None)
+                event.content.pop("formatted_body", None)
+                event.unsigned["redacted_because"] = {}
+                missing_events[i] = event
 
         return missing_events
 
