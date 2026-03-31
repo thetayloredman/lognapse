@@ -94,6 +94,20 @@ class FederationConfig(Config):
             2**62,
         )
 
+        # Servers to "spoil" outgoing events for (server blocking)
+        self.spoil_servers = federation_config.get("spoil_servers", [])
+        # When spoiling an event, only spoil the events of these senders
+        self.spoil_users = federation_config.get("spoil_users", None)
+
+    def should_spoil_event(self, remote: str, sender: str) -> bool:
+        """
+        Returns whether an outgoing event should be "spoiled"
+        """
+        if remote in self.spoil_servers:
+            if not self.spoil_users or sender in self.spoil_users:
+                return True
+        return False
+
     def is_domain_allowed_according_to_federation_whitelist(self, domain: str) -> bool:
         """
         Returns whether a domain is allowed according to the federation whitelist. If a
