@@ -17,7 +17,9 @@
 # [This file includes modifications made by New Vector Limited]
 #
 #
+import copy
 import logging
+import os
 from typing import TYPE_CHECKING
 
 from prometheus_client import Gauge
@@ -171,11 +173,37 @@ class TransactionManager:
                 data = transaction.get_dict()
                 now = int(self.clock.time_msec())
                 if "pdus" in data:
-                    for p in data["pdus"]:
+                    for i, p in enumerate(data["pdus"]):
                         if "age_ts" in p:
                             unsigned = p.setdefault("unsigned", {})
                             unsigned["age"] = now - int(p["age_ts"])
                             del p["age_ts"]
+                        if self._store.config.federation.should_spoil_event(
+                            transaction.destination,
+                            p["sender"]
+                        ):
+                            logger.info("[%s] spoiling %r for %s", transaction.transaction_id, p, transaction.destination)
+                            # (starnapse) In order to prevent undesired recipients from receiving
+                            # the real content of the event, we will overwrite it with garbage data.
+                            # This has the added benefit that, due to the way content hashes work,
+                            # the receiving remote will *redact* this event on their end before
+                            # processing it. This means that the remote will either have to fetch
+                            # the spoilt event from another server (expensive), the recipients will
+                            # have to use an alt on another server to by pass the block (time consuming),
+                            # or just suck it up and accept that the sender doesn't want their message to
+                            # be seen.
+                            #
+                            # In the civilised world, we call this blocking. Some ill-intented actors
+                            # will have you believe this is "malicious", "exploiting" "protocol issues"
+                            # and perhaps even "a vulnerability". In reality, this is a last resort that is
+                            # as close to nuclear as possible, since the aforementioned ill-intended actors
+                            # do not understand what "please do not contact me again in any capacity" means.
+                            data["pdus"][i] = p = copy.deepcopy(p)
+                            p["content"]["body"] = f"{transaction.destination} forgot to redact this event"
+                            p["content"]["msgtype"] = "m.text"
+                            p["content"].pop("format", None)
+                            p["content"].pop("formatted_body", None)
+                            p["unsigned"]["redacted_because"] = {}
                 return data
 
             try:
