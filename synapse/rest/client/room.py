@@ -1179,29 +1179,6 @@ class RoomEventServlet(RestServlet):
             )
             == "true"
         )
-        if include_unredacted_content and not await self.auth.is_server_admin(
-            requester
-        ):
-            auth_events = await self._storage_controllers.state.get_current_state(
-                room_id,
-                StateFilter.from_types(
-                    [
-                        POWER_KEY,
-                        CREATE_KEY,
-                    ]
-                ),
-            )
-
-            redact_level = event_auth.get_named_level(auth_events, "redact", 50)
-            user_level = event_auth.get_user_power_level(
-                requester.user.to_string(), auth_events
-            )
-            if user_level < redact_level:
-                raise SynapseError(
-                    403,
-                    "You don't have permission to view redacted events in this room.",
-                    errcode=Codes.FORBIDDEN,
-                )
 
         try:
             event = await self.event_handler.get_event(
