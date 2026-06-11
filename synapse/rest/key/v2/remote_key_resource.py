@@ -271,10 +271,7 @@ class RemoteKey(RestServlet):
 
             if miss and query_remote_on_cache_miss:
                 # only bother attempting to fetch keys from servers on our whitelist
-                if (
-                    self.federation_domain_whitelist is None
-                    or server_name in self.federation_domain_whitelist
-                ):
+                if self.config.federation.is_remote_allowed(server_name):
                     cache_misses.setdefault(server_name, {})[key_id] = 0
 
         # If there is a cache miss, request the missing keys, then recurse (and

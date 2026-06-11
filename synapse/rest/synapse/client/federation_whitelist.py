@@ -47,6 +47,7 @@ class FederationWhitelistResource(DirectServeJsonResource):
         super().__init__(clock=hs.get_clock())
 
         self._federation_whitelist = hs.config.federation.federation_domain_whitelist
+        self._federation_denylist = hs.config.federation.federation_domain_denylist
 
         self._auth = hs.get_auth()
 
@@ -54,13 +55,18 @@ class FederationWhitelistResource(DirectServeJsonResource):
         await self._auth.get_user_by_req(request)
 
         whitelist = []
+        denylist = []
         if self._federation_whitelist:
             # federation_whitelist is actually a dict, not a list
             whitelist = list(self._federation_whitelist)
+        if self._federation_denylist:
+            denylist = list(self._federation_denylist)
 
         return_dict: JsonDict = {
             "whitelist_enabled": self._federation_whitelist is not None,
             "whitelist": whitelist,
+            "denylist_enabled": self._federation_denylist is not None,
+            "denylist": denylist
         }
 
         return 200, return_dict

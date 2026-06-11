@@ -627,10 +627,7 @@ class MediaRepository:
         Returns:
             Resolves once a response has successfully been written to request
         """
-        if (
-            self.federation_domain_whitelist is not None
-            and server_name not in self.federation_domain_whitelist
-        ):
+        if not self.hs.config.federation.is_remote_allowed(server_name):
             raise FederationDeniedError(server_name)
 
         # Don't let users download media from domains listed in the config, even
@@ -708,10 +705,7 @@ class MediaRepository:
         Returns:
             The media info of the file
         """
-        if (
-            self.federation_domain_whitelist is not None
-            and server_name not in self.federation_domain_whitelist
-        ):
+        if not self.hs.config.federation.is_remote_allowed(server_name):
             raise FederationDeniedError(server_name)
 
         # We linearize here to ensure that we don't try and download remote

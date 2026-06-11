@@ -46,6 +46,11 @@ class FederationConfig(Config):
             "federation_whitelist_endpoint_enabled", False
         )
 
+        self.federation_domain_denylist: dict | None = None
+        denylist_list = config.get("federation_domain_denylist", None)
+        if denylist_list is not None and isinstance(denylist_list, list):
+            self.federation_domain_denylist = dict.fromkeys(denylist_list, True)
+
         federation_metrics_domains = config.get("federation_metrics_domains") or []
         validate_config(
             _METRICS_FOR_DOMAINS_SCHEMA,
@@ -108,6 +113,27 @@ class FederationConfig(Config):
                 return True
         return False
 
+    def is_remote_allowed(self, server_name: str | None) -> bool:
+        """
+        Returns whether a domain is allowed according to both the federation whitelist
+        and the denylist. The whitelist takes priority over the denylist.
+
+        Args:
+            server_name: The server to test.
+
+        Returns:
+            True if the domain is allowed, False otherwise.
+        """
+        if not server_name:
+            return True
+        if self.federation_domain_whitelist:
+            if server_name in self.federation_domain_whitelist:
+                return True
+        if self.federation_domain_denylist:
+            if server_name in self.federation_domain_denylist:
+                return False
+        return True
+
     def is_domain_allowed_according_to_federation_whitelist(self, domain: str) -> bool:
         """
         Returns whether a domain is allowed according to the federation whitelist. If a
@@ -119,10 +145,7 @@ class FederationConfig(Config):
         Returns:
             True if the domain is allowed or if a whitelist is not set, False otherwise.
         """
-        if self.federation_domain_whitelist is None:
-            return True
-
-        return domain in self.federation_domain_whitelist
+        return self.is_remote_allowed(domain)
 
 
 _METRICS_FOR_DOMAINS_SCHEMA = {"type": "array", "items": {"type": "string"}}

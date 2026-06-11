@@ -626,11 +626,7 @@ class MatrixFederationHttpClient:
         else:
             _sec_timeout = self.default_timeout_seconds
 
-        if (
-            self.hs.config.federation.federation_domain_whitelist is not None
-            and request.destination
-            not in self.hs.config.federation.federation_domain_whitelist
-        ):
+        if not self.hs.config.federation.is_remote_allowed(request.destination):
             raise FederationDeniedError(request.destination)
 
         limiter = await synapse.util.retryutils.get_retry_limiter(

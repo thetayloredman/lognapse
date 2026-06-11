@@ -116,10 +116,7 @@ class Authenticator:
                         f"Destination mismatch in auth header, received: {destination!r}",
                         Codes.UNAUTHORIZED,
                     )
-        if (
-            self.federation_domain_whitelist is not None
-            and origin not in self.federation_domain_whitelist
-        ):
+        if not self.store.config.federation.is_remote_allowed(origin):
             raise FederationDeniedError(origin)
 
         if origin is None or not json_request["signatures"]:
