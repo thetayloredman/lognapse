@@ -41,12 +41,13 @@ from synapse.events.utils import FilteredEvent, prune_event
 from synapse.logging.opentracing import trace
 from synapse.storage.controllers import StorageControllers
 from synapse.storage.databases.main import DataStore
+from synapse.storage.databases.main.events_worker import EventRedactBehaviour
 from synapse.synapse_rust.events import event_visible_to_server
 from synapse.types import (
-    RetentionPolicy,
+    EventID, RetentionPolicy,
     StateMap,
     StrCollection,
-    get_domain_from_id,
+    UserID, get_domain_from_id,
 )
 from synapse.types.state import StateFilter
 from synapse.util.clock import Clock
@@ -175,6 +176,7 @@ async def filter_and_transform_events_for_client(
             retention_policies[
                 room_id
             ] = await storage.main.get_retention_policy_for_room(room_id)
+    sender_trees: dict[str, set[str]] = {}
 
     # meow: let admins see secret events like org.matrix.dummy_event, m.room.aliases
     #       and events expired by the retention policy.
@@ -182,13 +184,18 @@ async def filter_and_transform_events_for_client(
 
     def allowed(event: EventBase) -> FilteredEvent | None:
         state_after_event = event_id_to_state.get(event.event_id)
+        sender_ignored = event.sender in ignore_list
+        if not sender_ignored and (tree := sender_trees.get(event.event_id)):
+            logger.debug("sender %s is not in %r, checking if any senders in %r are", event.sender, ignore_list, tree)
+            sender_ignored = any(sender in ignore_list for sender in tree)
+            logger.debug("any sender in ignore list: %r", sender_ignored)
         filtered = _check_client_allowed_to_see_event(
             user_id=user_id,
             event=event,
             clock=storage.main.clock,
             msc4354_enabled=storage.main.hs.config.experimental.msc4354_enabled,
             filter_send_to_client=filter_send_to_client,
-            sender_ignored=event.sender in ignore_list,
+            sender_ignored=sender_ignored,
             always_include_ids=always_include_ids,
             retention_policy=retention_policies[event.room_id],
             state=state_after_event,
@@ -242,6 +249,47 @@ async def filter_and_transform_events_for_client(
         return FilteredEvent(event=filtered, membership=user_membership)
 
     # Check each event: gives an iterable of None or a FilteredEvent.
+    event_map = {ev.event_id: ev for ev in events}
+    async def walk_relations(root: EventBase, senders: set[str]) -> set[str]:
+        senders.add(root.sender)
+        logger.debug("Walking relations of %s (senders: %r)", root.event_id, senders)
+        relations = root.content.get("m.relates_to")
+        if not isinstance(relations, dict):
+            logger.debug("No more relations to walk (no relates_to)")
+            return senders
+        reply_to = relations.get("m.in_reply_to")
+        if not isinstance(reply_to, dict):
+            logger.debug("No more relations to walk (no in_reply_to)")
+            return senders
+        reply_id = reply_to.get("event_id")
+        if not isinstance(reply_id, str):
+            logger.debug("No more relations to walk (no event_id)")
+            return senders
+        reply = event_map.get(
+            reply_id,
+            await storage.main.get_event(
+                reply_id,
+                redact_behaviour=EventRedactBehaviour.as_is,
+                allow_rejected=True,
+                allow_none=True
+            )
+        )
+        if reply is None:
+            logger.debug("No more relations to walk (reply to unknown event)")
+            return senders
+        # If this reply is already in sender_trees, we've already walked it, and can
+        # return now.
+        if reply in sender_trees:
+            logger.debug("Already seen reply, no more relations to walk.")
+            return senders
+        return await walk_relations(reply, senders)
+
+    for ev in events:
+        logger.debug("Preparing to walk relations of proposed event %s", ev.event_id)
+        sender_trees.setdefault(ev.event_id, set())
+        await walk_relations(ev, sender_trees[ev.event_id])
+        logger.debug("Finished walking relations of proposed event %s", ev.event_id)
+
     filtered_events = map(allowed, events)
 
     # Turn it into a list and remove None entries before returning.
