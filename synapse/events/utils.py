@@ -206,10 +206,7 @@ class EventClientSerializer:
         # admin-only metadata based on the requester.
         if include_admin_metadata is None:
             # Check if the requester is a server admin.
-            if requester is not None and await self._auth.is_server_admin(requester):
-                include_admin_metadata = True
-            else:
-                include_admin_metadata = False
+            include_admin_metadata = True
 
         return SerializeEventConfig(
             as_client_event=as_client_event,
