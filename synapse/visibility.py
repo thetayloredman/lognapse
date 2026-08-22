@@ -124,7 +124,7 @@ async def filter_and_transform_events_for_client(
         events.append(event)
 
     client_config = await storage.main.get_admin_client_config_for_user(user_id)
-    if filter_send_to_client and await storage.main.is_server_admin(user_id):
+    if filter_send_to_client:
         if client_config.return_soft_failed_events:
             # The user has requested that all events be included, so do that.
             # We copy the list for mutation safety.
