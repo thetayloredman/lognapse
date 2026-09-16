@@ -19,13 +19,16 @@
 #
 #
 import json
-from collections.abc import Set
+import hashlib
+import random
+from collections.abc import Mapping, Set
 from typing import TYPE_CHECKING, Collection, cast
 
 import attr
 from canonicaljson import encode_canonical_json
 
 from synapse.api.constants import (
+    AccountDataTypes,
     EventTypes,
     Membership,
     ProfileFields,
@@ -236,12 +239,17 @@ class ProfileWorkerStore(SQLBaseStore):
         Raises:
             404 if the user does not exist.
         """
-        return await self.db_pool.simple_select_one_onecol(
+        displayname = await self.db_pool.simple_select_one_onecol(
             table="profiles",
             keyvalues={"full_user_id": user_id.to_string()},
             retcol="displayname",
             desc="get_profile_displayname",
         )
+        if displayname is not None:
+            return displayname
+
+        overrides = await self._get_profile_field_overrides(user_id)
+        return cast(str | None, overrides.get(ProfileFields.DISPLAYNAME))
 
     async def get_profile_avatar_url(self, user_id: UserID) -> str | None:
         """
@@ -253,12 +261,55 @@ class ProfileWorkerStore(SQLBaseStore):
         Raises:
             404 if the user does not exist.
         """
-        return await self.db_pool.simple_select_one_onecol(
+        avatar_url = await self.db_pool.simple_select_one_onecol(
             table="profiles",
             keyvalues={"full_user_id": user_id.to_string()},
             retcol="avatar_url",
             desc="get_profile_avatar_url",
         )
+        if avatar_url is not None:
+            return avatar_url
+
+        overrides = await self._get_profile_field_overrides(user_id)
+        return cast(str | None, overrides.get(ProfileFields.AVATAR_URL))
+
+    async def _get_profile_field_overrides(
+        self, user_id: UserID
+    ) -> dict[str, JsonValue]:
+        repository = await self.get_global_account_data_by_type_for_user(
+            user_id.to_string(), AccountDataTypes.PROFILE_FIELD_REPOSITORY
+        )
+        if not isinstance(repository, Mapping):
+            return {}
+
+        overrides: dict[str, JsonValue] = {}
+        for field_name, definition in repository.items():
+            if not isinstance(field_name, str) or not isinstance(definition, Mapping):
+                continue
+
+            values = definition.get("values")
+            if not isinstance(values, list) or not values:
+                continue
+
+            selection = definition.get("selection", "rand")
+            if selection == "rand":
+                index = random.randrange(len(values))
+            else:
+                if selection == "hourly":
+                    seed = f"{user_id.to_string()}:{self.clock.time_msec() // 3_600_000}"
+                elif selection == "daily":
+                    seed = f"{user_id.to_string()}:{self.clock.time_msec() // 86_400_000}"
+                elif selection == "weekly":
+                    seed = f"{user_id.to_string()}:{self.clock.time_msec() // 604_800_000}"
+                else:
+                    continue
+                index = int.from_bytes(
+                    hashlib.sha256(seed.encode()).digest(), "big"
+                ) % len(values)
+
+            overrides[field_name] = values[index]
+
+        return overrides
 
     async def get_profile_field(
         self, user_id: UserID, field_name: str
@@ -331,7 +382,17 @@ class ProfileWorkerStore(SQLBaseStore):
                     return json.loads(value)
                 return value
 
-        return await self.db_pool.runInteraction("get_profile_field", get_profile_field)
+        try:
+            return await self.db_pool.runInteraction(
+                "get_profile_field", get_profile_field
+            )
+        except StoreError as e:
+            if e.code != 404:
+                raise
+            overrides = await self._get_profile_field_overrides(user_id)
+            if field_name in overrides:
+                return overrides[field_name]
+            raise
 
     async def get_profile_fields(self, user_id: UserID) -> dict[str, str]:
         """
@@ -352,7 +413,12 @@ class ProfileWorkerStore(SQLBaseStore):
         # The SQLite driver doesn't have a JSON datatype.
         if isinstance(self.database_engine, Sqlite3Engine) and result:
             result = json.loads(result)
-        return result or {}
+        fields = result or {}
+        overrides = await self._get_profile_field_overrides(user_id)
+        for field_name, value in overrides.items():
+            if field_name not in fields:
+                fields[field_name] = value
+        return fields
 
     def get_max_profile_updates_stream_id(self) -> int:
         """Get the current maximum stream_id for profile updates."""
@@ -668,6 +734,16 @@ class ProfileWorkerStore(SQLBaseStore):
                 ProfileFields.AVATAR_URL: avatar_url,
             }
             user_fields.update(base_fields)
+
+            overrides = await self._get_profile_field_overrides(
+                UserID.from_string(full_user_id)
+            )
+            for field_name, value in overrides.items():
+                if field_name not in user_fields or (
+                    field_name in (ProfileFields.DISPLAYNAME, ProfileFields.AVATAR_URL)
+                    and user_fields[field_name] is None
+                ):
+                    user_fields[field_name] = value
 
             results[full_user_id] = user_fields
 

@@ -133,26 +133,17 @@ class ProfileHandler:
         target_user = UserID.from_string(user_id)
 
         if self.hs.is_mine(target_user):
-            profileinfo = await self.store.get_profileinfo(target_user)
-            extra_fields = await self.store.get_profile_fields(target_user)
-
-            if (
-                profileinfo.display_name is None
-                and profileinfo.avatar_url is None
-                and not extra_fields
-            ):
+            profile = (
+                await self.store.get_profile_data_for_users([target_user.to_string()])
+            ).get(target_user.to_string())
+            if not profile:
                 raise SynapseError(404, "Profile was not found", Codes.NOT_FOUND)
 
-            # Do not include display name or avatar if unset.
-            ret = {}
-            if profileinfo.display_name is not None:
-                ret[ProfileFields.DISPLAYNAME] = profileinfo.display_name
-            if profileinfo.avatar_url is not None:
-                ret[ProfileFields.AVATAR_URL] = profileinfo.avatar_url
-            if extra_fields:
-                ret.update(extra_fields)
-
-            return ret
+            return {
+                field_name: value
+                for field_name, value in profile.items()
+                if value is not None
+            }
         else:
             try:
                 result = await self.federation.make_query(
