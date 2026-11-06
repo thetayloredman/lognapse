@@ -37,6 +37,7 @@ from twisted.web.server import Request
 
 from synapse import event_auth
 from synapse.api.constants import (
+    CUSTOM_TOP_LEVEL_EXTRA,
     Direction,
     EventTypes,
     Membership,
@@ -488,6 +489,11 @@ class RoomSendEventRestServlet(TransactionRestServlet):
 
         if origin_server_ts is not None:
             event_dict["origin_server_ts"] = origin_server_ts
+
+        if requester.user.to_string() in self.hs.config.meow.top_level_event_field_send:
+            event_dict[CUSTOM_TOP_LEVEL_EXTRA] = content.pop(
+                CUSTOM_TOP_LEVEL_EXTRA, None
+            )
 
         if sticky_duration_ms is not None:
             event_dict[StickyEvent.EVENT_FIELD_NAME] = StickyEventField(

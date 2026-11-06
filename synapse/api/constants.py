@@ -91,6 +91,18 @@ MAIN_TIMELINE: Final = "main"
 # MAX_INT + 1, so it always trumps any PL in canonical JSON.
 CREATOR_POWER_LEVEL = 2**53
 
+CUSTOM_TOP_LEVEL_EXTRA = "fi.mau.custom_top_level_extra"
+FORBIDDEN_CUSTOM_TOP_LEVEL_FIELDS = (
+    "type",
+    "room_id",
+    "state_key",
+    "sender",
+    "content",
+    "unsigned",
+    "redacts",
+    "origin_server_ts",
+)
+
 
 class Membership:
     """Represents the membership states of a user in a room."""

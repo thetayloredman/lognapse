@@ -25,6 +25,8 @@ import attr
 from signedjson.types import SigningKey
 
 from synapse.api.constants import (
+    CUSTOM_TOP_LEVEL_EXTRA,
+    FORBIDDEN_CUSTOM_TOP_LEVEL_FIELDS,
     MAX_DEPTH,
     EventTypes,
     StateDag,
@@ -109,6 +111,8 @@ class EventBuilder:
     internal_metadata: EventInternalMetadata = attr.Factory(
         lambda: EventInternalMetadata({})
     )
+
+    custom_extra: dict | None = None
 
     @property
     def state_key(self) -> str:
@@ -335,6 +339,16 @@ class EventBuilder:
         if self.sticky is not None:
             event_dict[StickyEvent.EVENT_FIELD_NAME] = self.sticky
 
+        if (
+            self.custom_extra
+            and type(self.custom_extra) is dict
+            and self.sender
+            and self.sender in self._store.hs.config.meow.top_level_event_field_send
+        ):
+            for key in FORBIDDEN_CUSTOM_TOP_LEVEL_FIELDS:
+                self.custom_extra.pop(key, None)
+            event_dict.update(self.custom_extra)
+
         return create_local_event_from_event_dict(
             clock=self._clock,
             hostname=self._hostname,
@@ -376,6 +390,7 @@ class EventBuilderFactory:
             hostname=self.hostname,
             signing_key=self.signing_key,
             room_version=room_version,
+            custom_extra=key_values.get(CUSTOM_TOP_LEVEL_EXTRA, None),
             type=key_values["type"],
             state_key=key_values.get("state_key"),
             room_id=key_values.get("room_id"),
