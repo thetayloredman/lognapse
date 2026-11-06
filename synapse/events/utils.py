@@ -174,7 +174,7 @@ class EventClientSerializer:
         self,
         *,
         as_client_event: bool = True,
-        event_format: EventFormat = EventFormat.ClientV1,
+        event_format: EventFormat = EventFormat.ClientV2,
         requester: Requester | None = None,
         event_field_allowlist: list[str] | None = None,
         include_stripped_room_state: bool = False,

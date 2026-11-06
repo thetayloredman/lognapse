@@ -58,12 +58,13 @@ use crate::{
 const USER_ID: &str = "user_id";
 
 /// Keys dropped by the v2 client event format.
-const V2_DROP_KEYS: [&str; 7] = [
-    event_field::AUTH_EVENTS,
-    event_field::PREV_EVENTS,
-    event_field::HASHES,
-    event_field::SIGNATURES,
-    event_field::DEPTH,
+/// Meow: expose server magic to clients
+const V2_DROP_KEYS: [&str; 2] = [
+//     event_field::AUTH_EVENTS,
+//     event_field::PREV_EVENTS,
+//     event_field::HASHES,
+//     event_field::SIGNATURES,
+//     event_field::DEPTH,
     event_field::ORIGIN,
     event_field::PREV_STATE,
 ];
