@@ -1,53 +1,20 @@
-# Maunium Synapse
+# Lognapse
 This is a fork of [Synapse] to remove dumb limits and fix bugs that the
 upstream devs don't want to fix.
 
-The only official distribution is the docker image in the [GitLab container
-registry], but you can also install from source ([upstream instructions]).
+It contains primarily changes from the forks [Maunapse] and [Starnapse], plus
+a few additional changes run on zirco.dev.
 
-The master branch and `:latest` docker tag are upgraded to each upstream
-release candidate very soon after release (usually within 10 minutes†). There
-are also docker tags for each release, e.g. `:1.75.0`. If you don't want RCs,
-use the specific release tags.
-
-†If there are merge conflicts, the update may be delayed for up to a few days
-after the full release.
+I do not recommend running this fork blindly: please read the commits and
+cherry-pick those you find useful.
 
 [Synapse]: https://github.com/matrix-org/synapse
-[GitLab container registry]: https://mau.dev/maunium/synapse/container_registry
-[upstream instructions]: https://github.com/matrix-org/synapse/blob/develop/INSTALL.md#installing-from-source
-
-## List of changes
-* Default power level for room creator is 9001 instead of 100.
-* Room creator can specify a custom room ID with the `room_id` param in the
-  request body. If the room ID is already in use, it will return `M_CONFLICT`.
-* ~~URL previewer user agent includes `Bot` so Twitter previews work properly.~~
-  Upstreamed after over 2 years 🎉
-* ~~Local event creation concurrency is disabled to avoid unnecessary state
-  resolution.~~ Upstreamed after over 3 years 🎉
-* Register admin API can register invalid user IDs.
-* Docker image with jemalloc enabled by default.
-* Config option to allow specific users to send events without unnecessary
-  validation.
-* Config option to allow specific users to receive events that are usually
-  filtered away (e.g. `org.matrix.dummy_event` and `m.room.aliases`).
-* Config option to allow specific users to use timestamp massaging without
-  being appservice users.
-* Removed bad pusher URL validation.
-* webp images are thumbnailed to webp instead of jpeg to avoid losing
-  transparency.
-* Media repo `Cache-Control` header says `immutable` and 1 year for all media
-  that exists, as media IDs in Matrix are immutable.
-* Allowed sending custom data with read receipts.
-
-You can view the full list of changes on the [meow-patchset] branch.
-Additionally, historical patch sets are saved as `meow-patchset-vX` [tags].
-
-[meow-patchset]: https://mau.dev/maunium/synapse/-/compare/patchset-base...meow-patchset
-[tags]: https://mau.dev/maunium/synapse/-/tags?search=meow-patchset&sort=updated_desc
+[Maunapse]: https://mau.dev/maunium/synapse
+[Starnapse]: https://git.nexy7574.co.uk/star/starnapse
 
 ## Configuration reference
 ```yaml
+# maunapse:
 meow:
    # List of users who aren't subject to unnecessary validation in the C-S API.
    validation_override:
@@ -63,4 +30,27 @@ meow:
    # List of users who can set arbitrary top-level event fields
    top_level_event_field_send:
    - "@you:example.com"
+
+# starnapse:
+federation:
+  # Servers to "spoil" outgoing events for (server soft-blocking).
+  # Servers in this list will receive tampered copies of events, forcing them to redact them locally before continuing.
+  # This allows you to prevent specific remote servers seeing the contents of your events.
+  # Exact server names are required - glob and regex is not supported.
+  # This is a nuclear option!
+  spoil_servers:
+    - server.example
+    - evil.server.example
+  # When an event is being sent to a spoiled remote (above), if the event's sender is not in this list, the event
+  # will not be spoiled. This allows you to limit whose events are spoilt.
+  # If the list is empty/not provided, all users are spoilt.
+  spoil_users:
+    - "@user1:starstruck.example"
+  # Servers to outright deny federation with (server hard-blocking).
+  # Servers in this list will not be permitted to make federation requests to your server at all, and all outgoing
+  # federation requests to blocked remotes (including end-to-end encryption and media) will also be prevented.
+  # Exact server names are required - glob and regex is not supported.
+  # This is a double nuclear option!
+  federation_domain_denylist:
+    - denied.domain.example
 ```
